@@ -151,3 +151,6 @@ tests/test_data/*.txt
 
 # Testing File Folder
 test_files/
+
+# Remove the runner.py due to sensitive event payload
+runner.py
