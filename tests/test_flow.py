@@ -79,7 +79,7 @@ class TestFlow:
         ("100.1.1.1.1", False),
     ]
     @pytest.mark.parametrize("test_data,expected_result", testdata)
-    def test_test_flow_initialization_IsAnIPAddress(self,test_data,expected_result):
+    def test_flow_initialization_IsAnIPAddress(self,test_data,expected_result):
         # Arrange
         source = "172.31.255.20"
         destination = "i-07972a766e0461bee"
@@ -103,7 +103,7 @@ class TestFlow:
         ("i-07972a766e0461bee", "172.31.255.50:i-07972a766e0461bee"),
     ]
     @pytest.mark.parametrize("source,expected_result", testdata)
-    def test_test_flow_initialization_SourceInstance(self, source, expected_result):
+    def test_flow_initialization_SourceInstance(self, source, expected_result):
         # Arrange
         destination = "i-07972a766e0461bee"
         protocol = "tcp"
@@ -126,7 +126,7 @@ class TestFlow:
         ("i-07972a766e0461bee", "172.31.255.50:i-07972a766e0461bee"),
     ]
     @pytest.mark.parametrize("destination,expected_result", testdata)
-    def test_test_flow_initialization_DestinationInstance(self, destination, expected_result):
+    def test_flow_initialization_DestinationInstance(self, destination, expected_result):
         # Arrange
         source = "i-07972a766e0461bee"
         protocol = "tcp"

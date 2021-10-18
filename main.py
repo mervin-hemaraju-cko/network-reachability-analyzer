@@ -27,6 +27,9 @@ def extract_nra_parameters(payload):
     if "text" not in payload:
         raise Exception("Missing parameters.")
     
+    if len(payload["text"]) < 1:
+        raise Exception("Missing parameters.")
+        
     # Extract the parameters
     parameters = payload["text"][0]
     
