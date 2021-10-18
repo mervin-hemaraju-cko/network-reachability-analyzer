@@ -25,17 +25,17 @@ class Flow:
             self.source_id = self.fetch_instance_id("source", source)
         else:
             self.source_id = source
-            self.source_ip = self.fetch_instance_ip("source", destination)
+            self.source_ip = self.fetch_instance_ip("source", source)
         
         # Get IDs and IPs for destination
         if self.is_an_ip_address(destination):
             self.destination_id = self.fetch_instance_id("destination", destination)
         else:
             self.destination_id = destination
-            self.destination_ip = self.fetch_instance_ip("destination",destination)
+            self.destination_ip = self.fetch_instance_ip("destination", destination)
     
     def is_a_valid_port(self) -> bool:
-        return self.port > 0 and self.port < 65535
+        return self.port > 0 and self.port < 65536
     
     def is_a_valid_protocol(self) -> bool:
         return self.protocol in self.__available_protocols
@@ -50,10 +50,10 @@ class Flow:
         client = boto3.client('ec2')
         
         # Make the API call
-        response = client.describe_instances(Filters={
+        response = client.describe_instances(Filters=[{
             'Name': 'private-ip-address',
             'Values': [instance_ip],
-        })
+        }])
         
         # Retrieve instances
         for r in response['Reservations']:
@@ -70,10 +70,10 @@ class Flow:
         client = boto3.client('ec2')
         
         # Make the API call
-        response = client.describe_instances(Filters={
+        response = client.describe_instances(Filters=[{
             'Name': 'instance-id',
             'Values': [instance_id],
-        })
+        }])
         
         # Retrieve instances
         for r in response['Reservations']:
