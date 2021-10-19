@@ -1,4 +1,4 @@
-import re, boto3
+import re, boto3, uuid
 
 class Flow:
     
@@ -9,7 +9,7 @@ class Flow:
         self.destination_id  = None
         self.source_ip = source
         self.destination_ip = destination
-        self.port = port
+        self.port = int(port)
         self.protocol = protocol
         
         # Verify if port is valid
@@ -44,7 +44,7 @@ class Flow:
         pat = re.match("^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$", ip)
         return bool(pat)
     
-    def fetch_instance_id(self, remote, instance_ip):
+    def fetch_instance_id(self, remote, instance_ip) -> str:
         
         # Create EC2 client
         client = boto3.client('ec2')
@@ -64,7 +64,7 @@ class Flow:
         
         raise Exception(f"Wrong IP Address provided for {remote}")
     
-    def fetch_instance_ip(self, remote, instance_id):
+    def fetch_instance_ip(self, remote, instance_id) -> str:
         
         # Create EC2 client
         client = boto3.client('ec2')
@@ -83,3 +83,95 @@ class Flow:
                 return i["PrivateIpAddress"]
         
         raise Exception(f"Wrong Instance ID provided for {remote}")
+    
+    def create_nip(self) -> str:
+        
+        # Create EC2 client
+        client = boto3.client('ec2')
+        
+        # Create a network insights path
+        response = client.create_network_insights_path(
+            Source=self.source_id,
+            Destination=self.destination_id,
+            Protocol=self.protocol,
+            DestinationPort=self.port,
+            TagSpecifications=[
+                {
+                    'ResourceType': 'network-insights-path',
+                    'Tags': [
+                        {
+                            'Key': 'Creator',
+                            'Value': 'SysOps Team'
+                        },
+                    ]
+                },
+            ],
+            ClientToken=uuid.uuid4().hex[:6].upper()
+        )
+        
+        return response["NetworkInsightsPath"]["NetworkInsightsPathId"]
+    
+    def create_command_telnet(self) -> str:
+        
+        # Create SSM client
+        client = boto3.client('ssm')
+        
+        # Get command ID
+        response = client.send_command(
+            InstanceIds=[self.source_id],
+            DocumentName='Telnet',
+            DocumentVersion='$LATEST',
+            TimeoutSeconds=180,
+            Comment=f'Telnet test from {self.source_ip} to {self.destination_ip}',
+            Parameters={
+                'Destination': [
+                    self.destination_ip,
+                ],
+                'Port': [
+                    str(self.port),
+                ]
+            },
+        )
+        
+        # Return the command ID
+        return response['Command']['CommandId']
+    
+    def create_command_port_checking(self) -> str:
+        
+        # Create SSM client
+        client = boto3.client('ssm')
+        
+        # Get command ID
+        response = client.send_command(
+            InstanceIds=[self.source_id],
+            DocumentName='Port_Checker',
+            DocumentVersion='$LATEST',
+            TimeoutSeconds=60,
+            Comment=f'Checking port availability on {self.destination_ip}',
+            Parameters={
+                'Port': [
+                    str(self.port),
+                ]
+            },
+        )
+        
+        # Return the command ID
+        return response['Command']['CommandId']
+        
+    def create_command_wf_checking(self) -> str:
+        
+        # Create SSM client
+        client = boto3.client('ssm')
+        
+        # Get command ID
+        response = client.send_command(
+            InstanceIds=[self.source_id],
+            DocumentName='Windows_Firewall_Checker',
+            DocumentVersion='$LATEST',
+            TimeoutSeconds=60,
+            Comment=f'Checking windows firewall state on {self.destination_ip}'
+        )
+        
+        # Return the command ID
+        return response['Command']['CommandId']
+        
