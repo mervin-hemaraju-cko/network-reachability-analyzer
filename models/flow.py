@@ -1,4 +1,4 @@
-import re, boto3, uuid
+import re, boto3
 
 class Flow:
     
@@ -84,7 +84,7 @@ class Flow:
         
         raise Exception(f"Wrong Instance ID provided for {remote}")
     
-    def create_nip(self) -> str:
+    def create_nip(self, unique_request_id) -> str:
         
         # Create EC2 client
         client = boto3.client('ec2')
@@ -106,7 +106,7 @@ class Flow:
                     ]
                 },
             ],
-            ClientToken=uuid.uuid4().hex[:6].upper()
+            ClientToken=unique_request_id
         )
         
         return response["NetworkInsightsPath"]["NetworkInsightsPathId"]
@@ -143,7 +143,7 @@ class Flow:
         
         # Get command ID
         response = client.send_command(
-            InstanceIds=[self.source_id],
+            InstanceIds=[self.destination_id],
             DocumentName='Port_Checker',
             DocumentVersion='$LATEST',
             TimeoutSeconds=60,
@@ -165,7 +165,7 @@ class Flow:
         
         # Get command ID
         response = client.send_command(
-            InstanceIds=[self.source_id],
+            InstanceIds=[self.destination_id],
             DocumentName='Windows_Firewall_Checker',
             DocumentVersion='$LATEST',
             TimeoutSeconds=60,
