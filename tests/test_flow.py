@@ -1,4 +1,5 @@
-import pytest
+from main import main
+import pytest, uuid
 from models.flow import Flow
 
 ###############################
@@ -11,6 +12,26 @@ from models.flow import Flow
 
 class TestFlow:
 
+    # Uncomment to terminate instances
+    # def test_create_nia(self):
+    #     # Arrange
+    #     source = "172.31.255.20"
+    #     destination = "172.31.255.50"
+    #     port = 3389
+    #     protocol = "tcp"
+    #     username = "mervin.hemaraju"
+    #     unique_request_id = uuid.uuid4().hex[:6].upper()
+    
+    #     # Act
+    #     flow = Flow(source, destination, port, protocol)
+    #     result_nip_id, result_nia_id = flow.create_nia(username)
+        
+    #     print(f"Network Insights Path ID: {result_nip_id}")
+    #     print(f"Network Insights Analysis ID: {result_nia_id}")
+
+    #     # Assert
+    #     assert False
+    
     testdata = [
             (0, "Invalid port number provided. Only 1-65535 are accepted."),
             (1, "Passed"),

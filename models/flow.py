@@ -84,13 +84,13 @@ class Flow:
         
         raise Exception(f"Wrong Instance ID provided for {remote}")
     
-    def create_nip(self, unique_request_id) -> str:
+    def create_nia(self, username) -> str:
         
         # Create EC2 client
         client = boto3.client('ec2')
         
         # Create a network insights path
-        response = client.create_network_insights_path(
+        response_nip = client.create_network_insights_path(
             Source=self.source_id,
             Destination=self.destination_id,
             Protocol=self.protocol,
@@ -100,17 +100,40 @@ class Flow:
                     'ResourceType': 'network-insights-path',
                     'Tags': [
                         {
-                            'Key': 'Creator',
-                            'Value': 'SysOps Team'
+                            'Key': 'Name',
+                            'Value': f"Connection from {self.source_ip} to {self.destination_ip} on port {self.port}"
+                        },
+                        {
+                            'Key': 'CreatorName',
+                            'Value': username
                         },
                     ]
                 },
-            ],
-            ClientToken=unique_request_id
+            ]
         )
         
-        return response["NetworkInsightsPath"]["NetworkInsightsPathId"]
-    
+        nip_id = response_nip["NetworkInsightsPath"]["NetworkInsightsPathId"]
+        
+        response_nia = client.start_network_insights_analysis(
+            NetworkInsightsPathId=nip_id,
+            TagSpecifications=[
+                {
+                    'ResourceType': 'network-insights-analysis',
+                    'Tags': [
+                        {
+                            'Key': 'Name',
+                            'Value': f"Connection from {self.source_ip} to {self.destination_ip} on port {self.port}"
+                        },
+                        {
+                            'Key': 'CreatorName',
+                            'Value': username
+                        },
+                    ]
+                },
+            ]
+        )
+        return nip_id, response_nia['NetworkInsightsAnalysis']['NetworkInsightsAnalysisId']
+        
     def create_command_telnet(self) -> str:
         
         # Create SSM client

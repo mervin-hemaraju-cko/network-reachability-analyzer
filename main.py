@@ -1,4 +1,4 @@
-import requests, json, boto3, uuid, threading
+import requests, json, boto3, uuid, threading, time
 from os import environ
 from urllib.parse import parse_qs 
 from models.exceptions import SlackPayloadProcessing, SlackInvalidParameters
@@ -77,6 +77,40 @@ def apply_waiter_command_execution(command_id, instance_id, waiting_intervals):
         InstanceId=instance_id,
         WaiterConfig=waiting_intervals
     )
+
+def apply_waiter_nia(command_id, waiting_intervals):
+    
+    # Create the EC2 client
+    client = boto3.client('ec2') 
+
+    # Define parameters
+    delay = waiting_intervals["Delay"]
+    max_retries = waiting_intervals["MaxAttempts"]
+    current_status = "running"
+    described_analysis = None
+
+    # Keep looping until a successful status is not reached AND
+    # The maxt retries is not over
+    while(max_retries < 1 or current_status == "succeeded" or current_status == "failed"):
+
+        # Apply delay on first shot
+        time.sleep(delay)
+        
+        # After delay, try to poll
+        described_analysis = client.describe_network_insights_paths(
+            NetworkInsightsPathIds=[
+                command_id,
+            ]
+        )
+
+        # Update the current status
+        current_status = described_analysis['NetworkInsightsAnalyses']['Status']
+
+        # Decrease max_retries
+        max_retries = max_retries - 1
+
+    # Return the data
+    return described_analysis
     
 def get_command_output(command_id, instance_id, generic_error_message):
     
@@ -192,8 +226,20 @@ def action_start_port_checker(flow):
         
         return
 
-def action_start_nip(flow):
-    # TODO("Complete NIP")
+def action_start_nia(flow, username):
+    
+    # Get the NIA command ID
+    nip_id, nia_id = flow.create_nia(username)
+    
+    # Apply waiter to wait for analysis to process
+    analysis_results = apply_waiter_nia(nia_id, {
+        'Delay': 30,
+        'MaxAttempts': 8
+    })    
+    
+    # TODO("Process NIA results")
+    
+    
     pass
 
 def action_start_wf_checker(flow):
@@ -285,7 +331,7 @@ def main(event, context):
         else:
             # Create a thread for each action
             thread_port_checker = threading.Thread(target=action_start_port_checker, args=(flow,))
-            thread_nip = threading.Thread(target=action_start_nip, args=(flow,))
+            thread_nip = threading.Thread(target=action_start_nia, args=(flow, slack_caller.user,))
             thread_wf_checker = threading.Thread(target=action_start_wf_checker, args=(flow,))
             
             # Start the threads
