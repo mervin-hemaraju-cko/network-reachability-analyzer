@@ -5,7 +5,9 @@ from models.exceptions import SlackPayloadProcessing, SlackInvalidParameters
 from models.flow import Flow
 from models.slack_caller import SlackCaller
 from helper.utils import recover_output_telnet, recover_output_wf
+import helper.block_builder as BlockBuilder
 
+# TODO("findstr on port should match exactly")
 
 ############################
 ##### Global Variables #####
@@ -160,7 +162,7 @@ def action_start_telnet(flow):
                 "operation": "Telnet",
                 "success": True,
                 "operation_success": True,
-                "output": ""
+                "output": "Telnet is working. No flow opening needed."
             })
             
         else:
@@ -169,7 +171,7 @@ def action_start_telnet(flow):
                 "operation": "Telnet",
                 "success": True,
                 "operation_success": False,
-                "output": ""
+                "output": "Telnet is not working"
             }) 
     
     else:
@@ -201,7 +203,7 @@ def action_start_port_checker(flow):
             "operation": "Port_Checker",
             "success": True,
             "operation_success": False,
-            "output": ""
+            "output": "Port is not in listening state."
         }) 
         
         return
@@ -325,7 +327,61 @@ def action_start_wf_checker(flow):
             "output": wf_res_failure
         }) 
         
-
+def generate_report(flow, unique_identifier, username):
+    
+    # Get each main operation's output
+    output_telnet = next((filter(lambda output: output["operation"] == "Telnet", output_records)), None)
+    output_nia = next((filter(lambda output: output["operation"] == "Network_Insights_Analysis", output_records)), None)
+    output_port_checker = next((filter(lambda output: output["operation"] == "Port_Checker", output_records)), None)
+    output_wf_checker = next((filter(lambda output: output["operation"] == "Windows_Firewall_Checker", output_records)), None)
+    
+    # Create the final block and get the header
+    final_report_block = BlockBuilder.block_main_header(
+        source_ip= flow.source_ip,
+        source_id= flow.source_id,
+        destination_ip= flow.destination_ip,
+        destination_id= flow.destination_id,
+        port= flow.port,
+        protocol= flow.protocol,
+        unique_identifier=unique_identifier,
+        username=username
+    )
+    
+    # Determine final report for telnet
+    if output_telnet != None:
+        
+        if output_telnet["success"] == True:
+            final_report_telnet = BlockBuilder.block_telnet_success(output_telnet["operation_success"], output_telnet["output"])
+        else:
+            final_report_telnet = BlockBuilder.block_telnet_failure(output_telnet["output"])
+        
+        # Append to final report
+        final_report_block.extend(final_report_telnet)
+    
+    # Determine final report for port_checker
+    if output_port_checker != None:
+        
+        if output_port_checker["success"] == True:
+            final_report_port_checker = BlockBuilder.block_port_checker_success(output_port_checker["operation_success"], output_port_checker["output"])
+        else:
+            final_report_port_checker = BlockBuilder.block_port_checker_failure(output_port_checker["output"])
+        
+        # Append to final report
+        final_report_block.extend(final_report_port_checker)
+    
+    # Determine final report for windows firewall checker
+    if output_wf_checker != None:
+        
+        if output_wf_checker["success"] == True:
+            final_report_wf_checker = BlockBuilder.block_wf_checker_success(output_wf_checker["operation_success"], output_wf_checker["output"])
+        else:
+            final_report_wf_checker = BlockBuilder.block_wf_checker_failure(output_wf_checker["output"])
+        
+        # Append to final report
+        final_report_block.extend(final_report_wf_checker)
+            
+    # TODO(Append report for nia)
+    
 def main(event, context):
     
     # My Variables
@@ -351,7 +407,7 @@ def main(event, context):
         source, destination, port, protocol = extract_nra_parameters(payload)
         
         # Create a unique identifier for the request
-        unique_request_id = uuid.uuid4().hex[:6].upper()
+        unique_request_id = uuid.uuid4().hex[:12].upper()
         
         # Send a message to the user notifying the start of the script
         slack_instant_reply(slack_caller.response_url, f"Your request with ID {unique_request_id} has started.")
@@ -375,8 +431,13 @@ def main(event, context):
         telnet_output = next((filter(lambda output: output["operation"] == "Telnet", output_records)))
         
         if telnet_output["operation_success"] == True:
-            # TODO("Send report on Slack Channel")
+            
             slack_instant_reply(slack_caller.response_url, f"Your request has been completed.")
+            
+            generate_report(flow, unique_request_id, slack_caller.user)
+            
+            # TODO("Send report on Slack Channel")
+            
         else:
             # Create a thread for each action
             thread_port_checker = threading.Thread(target=action_start_port_checker, args=(flow,))
@@ -393,7 +454,11 @@ def main(event, context):
             thread_nia.join()
             thread_wf_checker.join()
             
-            # TODO(Construct final report and send to Slack)
+            slack_instant_reply(slack_caller.response_url, f"Your request has been completed.")
+            
+            generate_report(flow, unique_request_id, slack_caller.user)
+            
+            # TODO("Send report on Slack Channel")
         
     except SlackPayloadProcessing as SPP:
         # TODO("Post results to Slack")
