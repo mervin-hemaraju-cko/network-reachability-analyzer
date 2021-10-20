@@ -91,20 +91,23 @@ def apply_waiter_nia(command_id, waiting_intervals):
 
     # Keep looping until a successful status is not reached AND
     # The maxt retries is not over
-    while(max_retries < 1 or current_status == "succeeded" or current_status == "failed"):
-
+    while(max_retries > 0 and current_status == "running"):
+        
         # Apply delay on first shot
         time.sleep(delay)
         
         # After delay, try to poll
-        described_analysis = client.describe_network_insights_paths(
-            NetworkInsightsPathIds=[
+        described_analysis = client.describe_network_insights_analyses(
+            NetworkInsightsAnalysisIds=[
                 command_id,
             ]
         )
-
+        
+        # Re format the repsonse description
+        described_analysis = next((filter(lambda comp: comp, described_analysis['NetworkInsightsAnalyses'])), None)
+        
         # Update the current status
-        current_status = described_analysis['NetworkInsightsAnalyses']['Status']
+        current_status = described_analysis['Status']
 
         # Decrease max_retries
         max_retries = max_retries - 1
@@ -229,7 +232,7 @@ def action_start_port_checker(flow):
 def action_start_nia(flow, username):
     
     # Get the NIA command ID
-    nip_id, nia_id = flow.create_nia(username)
+    _, nia_id = flow.create_nia(username)
     
     # Apply waiter to wait for analysis to process
     analysis_results = apply_waiter_nia(nia_id, {
@@ -237,10 +240,56 @@ def action_start_nia(flow, username):
         'MaxAttempts': 8
     })    
     
-    # TODO("Process NIA results")
     
+    # The analysis wasn't successful
+    if analysis_results['Status'] != "succeeded":
+        
+        output_records.append({
+                "operation": "Network_Insights_Analysis",
+                "success": False,
+                "operation_success": False,
+                "output": "An error occurred while analysing path on AWS"
+            })
+        
+        return
     
-    pass
+    # No path found during analysis
+    # Which means that a flow will need to be addded on security groups
+    if not analysis_results['NetworkPathFound']:
+        
+        output_records.append({
+                "operation": "Network_Insights_Analysis",
+                "success": True,
+                "operation_success": False,
+                "output": "Flow needs to be added on AWS"
+            })
+        
+        return
+    
+    # Patch found on AWS
+    # Which means flow already opened.
+    else:
+        
+        # Search for the SG allowing the flow
+        sg_id_source = next((filter(lambda comp: "sg-" in comp["Component"]["Id"], analysis_results['ForwardPathComponents'])), None)
+        sg_id_destination = next((filter(lambda comp: "sg-" in comp["Component"]["Id"], analysis_results['ReturnPathComponents'])), None)
+        
+        # Search for the ENI allowing the flow
+        eni_id_source = next((filter(lambda comp: "eni-" in comp["Component"]["Id"], analysis_results['ForwardPathComponents'])), None)
+        eni_id_destination = next((filter(lambda comp: "eni-" in comp["Component"]["Id"], analysis_results['ReturnPathComponents'])), None)
+        
+        output_records.append({
+                "operation": "Network_Insights_Analysis",
+                "success": True,
+                "operation_success": True,
+                "output": "Flow already enabled on AWS",
+                "sg_source": sg_id_source["Component"]["Id"],
+                "sg_destination": sg_id_destination["Component"]["Id"],
+                "eni_source": eni_id_source["Component"]["Id"],
+                "eni_destination": eni_id_destination["Component"]["Id"],
+            })
+        
+        return
 
 def action_start_wf_checker(flow):
     
@@ -331,20 +380,20 @@ def main(event, context):
         else:
             # Create a thread for each action
             thread_port_checker = threading.Thread(target=action_start_port_checker, args=(flow,))
-            thread_nip = threading.Thread(target=action_start_nia, args=(flow, slack_caller.user,))
+            thread_nia = threading.Thread(target=action_start_nia, args=(flow, slack_caller.user,))
             thread_wf_checker = threading.Thread(target=action_start_wf_checker, args=(flow,))
             
             # Start the threads
             thread_port_checker.start()
-            thread_nip.start()
+            thread_nia.start()
             thread_wf_checker.start()
             
             # Wait for the threads
             thread_port_checker.join()
-            thread_nip.join()
+            thread_nia.join()
             thread_wf_checker.join()
             
-            print(output_records)
+            # TODO(Construct final report and send to Slack)
         
     except SlackPayloadProcessing as SPP:
         # TODO("Post results to Slack")
