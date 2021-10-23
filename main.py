@@ -6,6 +6,8 @@ from models.flow import Flow
 from models.slack_caller import SlackCaller
 from helper.utils import recover_output_telnet, recover_output_wf, determine_final_action
 import helper.block_builder as BlockBuilder
+import helper.constants as Consts
+
 
 # TODO("Test request unsuccessful cases")
 
@@ -65,7 +67,7 @@ def slack_instant_reply(resonse_url, message):
         headers={"Content-Type": "application/json"}
     )
 
-def post_to_slack_channel(blocks=None):
+def post_to_slack_channel(block_color, blocks=None):
     
     # Make API Call to Slack API
     requests.post('https://slack.com/api/chat.postMessage', {
@@ -73,7 +75,7 @@ def post_to_slack_channel(blocks=None):
         'channel': environ["ENV_SLACK_CHANNEL"],
         'username': environ["ENV_SLACK_USERNAME"],
         'as_user': True,
-        "attachments": json.dumps([{ "color": "#C990E1", "blocks": blocks}])
+        "attachments": json.dumps([{ "color": block_color, "blocks": blocks}])
     }).json()
     
 def apply_waiter_command_execution(command_id, instance_id, waiting_intervals):
@@ -232,7 +234,6 @@ def action_start_port_checker(flow):
     
     if pc_res_success != "":
         
-        # TODO(Enhance validation of port_checker)
         output_records.append({
             "operation": "Port_Checker",
             "success": True,
@@ -437,6 +438,9 @@ def main(event, context):
     
     slack_caller = None
     
+    # Create a unique identifier for the request
+    unique_request_id = uuid.uuid4().hex[:12].upper()
+        
     try:
         
         # Perform several checks to validate 
@@ -452,9 +456,6 @@ def main(event, context):
         # Extract parameters of the connection request
         # In case of malformed requests, it will trigger the SlackInvalidParameters Exception
         source, destination, port, protocol = extract_nra_parameters(payload)
-        
-        # Create a unique identifier for the request
-        unique_request_id = uuid.uuid4().hex[:12].upper()
         
         # Send a message to the user notifying the start of the script
         slack_instant_reply(slack_caller.response_url, f"Your request with ID {unique_request_id} has started.")
@@ -483,7 +484,7 @@ def main(event, context):
             
             final_report_block = generate_report(flow, unique_request_id, slack_caller.user)
             
-            post_to_slack_channel(final_report_block)
+            post_to_slack_channel(Consts.VALUE_COLOR_ACCENT, final_report_block)
             
         else:
             # Create a thread for each action
@@ -505,16 +506,29 @@ def main(event, context):
             
             final_report_block = generate_report(flow, unique_request_id, slack_caller.user)
             
-            post_to_slack_channel(final_report_block)
+            post_to_slack_channel(Consts.VALUE_COLOR_ACCENT, final_report_block)
             
         
     except SlackPayloadProcessing as SPP:
-        # TODO("Post results to Slack")
-        print(str(SPP))
+        
+        post_to_slack_channel(
+            Consts.VALUE_COLOR_NEGATIVE, BlockBuilder.block_error(
+                header="Error occured while processing the payload",
+                message=str(SPP),
+                unique_id=unique_request_id
+            )
+        )
         
     except SlackInvalidParameters as SIP:
+        
         slack_instant_reply(slack_caller.response_url, f"Error: {SIP}")
         
     except Exception as e:
-        # TODO("Post results to Slack")
-        print(str(e))
+        
+        post_to_slack_channel(
+            Consts.VALUE_COLOR_NEGATIVE, BlockBuilder.block_error(
+                header="Error occured while processing the request",
+                message=str(e),
+                unique_id=unique_request_id
+            )
+        )

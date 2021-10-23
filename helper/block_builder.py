@@ -320,3 +320,24 @@ def block_actions_needed(actions_needed):
 			]
 		}
 	]
+    
+def block_error(header, message, unique_id):
+    return [
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": f"{header} - {unique_id}",
+                "emoji": True
+            }
+        },
+        {
+            "type": "section",
+            "fields": [
+                {
+                    "type": "mrkdwn",
+                    "text": f"*Error Message:*\n{message}"
+                }
+            ]
+        }
+    ]

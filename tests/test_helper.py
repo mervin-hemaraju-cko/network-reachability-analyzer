@@ -95,28 +95,28 @@ class TestHelper:
         
         # Testing Operations Failed
         (
-            {"success": False, "operation_success": True},
+            {"success": False, "operation_success": False},
             {"success": True, "operation_success": True},
             {"success": True, "operation_success": True},
             {"success": True, "operation_success": True},
             Consts.FINAL_ACTION_UNDETERMINED
         ),
         (
-            {"success": True, "operation_success": True},
-            {"success": True, "operation_success": True},
-            {"success": False, "operation_success": True},
-            {"success": True, "operation_success": True},
-            Consts.FINAL_ACTION_UNDETERMINED
-        ),
-        (
-            {"success": False, "operation_success": True},
+            {"success": True, "operation_success": False},
             {"success": True, "operation_success": True},
             {"success": False, "operation_success": True},
             {"success": True, "operation_success": True},
             Consts.FINAL_ACTION_UNDETERMINED
         ),
         (
+            {"success": False, "operation_success": False},
+            {"success": True, "operation_success": True},
             {"success": False, "operation_success": True},
+            {"success": True, "operation_success": True},
+            Consts.FINAL_ACTION_UNDETERMINED
+        ),
+        (
+            {"success": False, "operation_success": False},
             {"success": False, "operation_success": True},
             {"success": False, "operation_success": True},
             {"success": False, "operation_success": True},

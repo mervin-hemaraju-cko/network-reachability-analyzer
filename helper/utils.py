@@ -5,6 +5,10 @@ def determine_final_action(output_telnet, output_port_checker, output_nia, outpu
     # This function will check all the output and determine
     # which actions needs to be taken on this flow
     
+    # We check for the telnet first before proceeding
+    if output_telnet["operation_success"] == True:
+        return Consts.FINAL_ACTION_NONE_REQ
+    
     # We check if any errors occurred in one of the actions
     if(output_telnet["success"] == False or
        output_port_checker["success"] == False or
@@ -12,10 +16,6 @@ def determine_final_action(output_telnet, output_port_checker, output_nia, outpu
        output_wf_checker["success"] == False
     ):
         return Consts.FINAL_ACTION_UNDETERMINED
-    
-    # We check for the telnet first before proceeding
-    if output_telnet["operation_success"] == True:
-        return Consts.FINAL_ACTION_NONE_REQ
     
     
     # If we reached this clause, it means the telnet was unsuccessful
