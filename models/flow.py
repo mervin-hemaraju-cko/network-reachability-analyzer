@@ -176,7 +176,7 @@ class Flow:
                     str(self.port),
                 ],
                 'Protocol': [
-                    str(self.protocol),
+                    self.protocol,
                 ]
             },
         )

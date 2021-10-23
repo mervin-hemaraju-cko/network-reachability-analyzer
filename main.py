@@ -4,8 +4,10 @@ from urllib.parse import parse_qs
 from models.exceptions import SlackPayloadProcessing, SlackInvalidParameters
 from models.flow import Flow
 from models.slack_caller import SlackCaller
-from helper.utils import recover_output_telnet, recover_output_wf
+from helper.utils import recover_output_telnet, recover_output_wf, determine_final_action
 import helper.block_builder as BlockBuilder
+
+# TODO("Test request unsuccessful cases")
 
 ############################
 ##### Global Variables #####
@@ -413,7 +415,17 @@ def generate_report(flow, unique_identifier, username):
         
         # Append to final report
         final_report_block.extend(final_report_nia)
-        
+    
+    # Add the final action
+    final_action = determine_final_action(
+        output_telnet=output_telnet,
+        output_port_checker=output_port_checker,
+        output_wf_checker=output_wf_checker,
+        output_nia=output_nia,
+    )
+    
+    final_report_block.extend(BlockBuilder.block_actions_needed(final_action))
+    
     # Return the final report
     return final_report_block
     
