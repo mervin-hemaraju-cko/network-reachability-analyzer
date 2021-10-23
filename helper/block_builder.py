@@ -196,7 +196,7 @@ def block_port_checker_failure(error_message):
 		}
     ]
 
-def block_nia_success(is_success, conclusion, sg_id_source, sg_id_destination, eni_id_source, eni_id_dest):
+def block_nia_success_change_needed(conclusion):
     return [
         {
 			"type": "header",
@@ -211,7 +211,32 @@ def block_nia_success(is_success, conclusion, sg_id_source, sg_id_destination, e
 			"fields": [
 				{
 					"type": "mrkdwn",
-					"text": f"*Has Entry in SG:*\n{'Yes' if is_success else 'No'}"
+					"text": f"*Has Entry in SG:*\nNo"
+				},
+				{
+					"type": "mrkdwn",
+					"text": f"*Conclusion:*\n{conclusion}"
+				}
+			]
+		}
+    ]
+    
+def block_nia_success_no_changes(conclusion, sg_id_source, sg_id_destination, eni_id_source, eni_id_destination):
+    return [
+        {
+			"type": "header",
+			"text": {
+				"type": "plain_text",
+				"text": "AWS Checker",
+				"emoji": True
+			}
+		},
+		{
+			"type": "section",
+			"fields": [
+				{
+					"type": "mrkdwn",
+					"text": f"*Has Entry in SG:*\nYes"
 				},
 				{
 					"type": "mrkdwn",
@@ -241,7 +266,7 @@ def block_nia_success(is_success, conclusion, sg_id_source, sg_id_destination, e
 				},
 				{
 					"type": "mrkdwn",
-					"text": f"*Destination ENI:*\n{eni_id_dest}"
+					"text": f"*Destination ENI:*\n{eni_id_destination}"
 				}
 			]
 		}
@@ -271,3 +296,27 @@ def block_nia_failure(error_message):
 			]
 		}
     ]
+
+def block_actions_needed(actions_needed):
+    return [
+		{
+			"type": "divider"
+		},
+		{
+			"type": "header",
+			"text": {
+				"type": "plain_text",
+				"text": "Actions",
+				"emoji": True
+			}
+		},
+		{
+			"type": "section",
+			"fields": [
+				{
+					"type": "mrkdwn",
+					"text": f"{actions_needed}"
+				}
+			]
+		}
+	]

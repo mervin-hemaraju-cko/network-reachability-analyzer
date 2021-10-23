@@ -7,8 +7,6 @@ from models.slack_caller import SlackCaller
 from helper.utils import recover_output_telnet, recover_output_wf
 import helper.block_builder as BlockBuilder
 
-# TODO("findstr on port should match exactly")
-
 ############################
 ##### Global Variables #####
 ############################
@@ -65,6 +63,17 @@ def slack_instant_reply(resonse_url, message):
         headers={"Content-Type": "application/json"}
     )
 
+def post_to_slack_channel(blocks=None):
+    
+    # Make API Call to Slack API
+    requests.post('https://slack.com/api/chat.postMessage', {
+        'token': environ["ENV_SLACK_KEY_API"],
+        'channel': environ["ENV_SLACK_CHANNEL"],
+        'username': environ["ENV_SLACK_USERNAME"],
+        'as_user': True,
+        "attachments": json.dumps([{ "color": "#C990E1", "blocks": blocks}])
+    }).json()
+    
 def apply_waiter_command_execution(command_id, instance_id, waiting_intervals):
     
     # Create the SSM client
@@ -162,7 +171,7 @@ def action_start_telnet(flow):
                 "operation": "Telnet",
                 "success": True,
                 "operation_success": True,
-                "output": "Telnet is working. No flow opening needed."
+                "output": "Telnet connection is working from Source to Destination"
             })
             
         else:
@@ -263,7 +272,7 @@ def action_start_nia(flow, username):
                 "operation": "Network_Insights_Analysis",
                 "success": True,
                 "operation_success": False,
-                "output": "Flow needs to be added on AWS"
+                "output": "No flow found that will allow this connection."
             })
         
         return
@@ -284,7 +293,7 @@ def action_start_nia(flow, username):
                 "operation": "Network_Insights_Analysis",
                 "success": True,
                 "operation_success": True,
-                "output": "Flow already enabled on AWS",
+                "output": "A flow already exists that will allow this connection",
                 "sg_source": sg_id_source["Component"]["Id"],
                 "sg_destination": sg_id_destination["Component"]["Id"],
                 "eni_source": eni_id_source["Component"]["Id"],
@@ -380,7 +389,33 @@ def generate_report(flow, unique_identifier, username):
         # Append to final report
         final_report_block.extend(final_report_wf_checker)
             
-    # TODO(Append report for nia)
+    # Determine final report for nia
+    if output_nia != None:
+        
+        if output_nia["success"] == True:
+            
+            if output_nia["operation_success"]:
+                
+                final_report_nia = BlockBuilder.block_nia_success_no_changes(
+                    conclusion=output_nia["output"],
+                    sg_id_source=output_nia["sg_source"],
+                    sg_id_destination=output_nia["sg_destination"],
+                    eni_id_source=output_nia["eni_source"],
+                    eni_id_destination=output_nia["eni_destination"],
+                )
+            
+            else:
+                final_report_nia = BlockBuilder.block_nia_success_change_needed(output_nia["output"])
+                
+        else:
+            final_report_nia = BlockBuilder.block_nia_failure(output_nia["output"])
+            
+        
+        # Append to final report
+        final_report_block.extend(final_report_nia)
+        
+    # Return the final report
+    return final_report_block
     
 def main(event, context):
     
@@ -434,9 +469,9 @@ def main(event, context):
             
             slack_instant_reply(slack_caller.response_url, f"Your request has been completed.")
             
-            generate_report(flow, unique_request_id, slack_caller.user)
+            final_report_block = generate_report(flow, unique_request_id, slack_caller.user)
             
-            # TODO("Send report on Slack Channel")
+            post_to_slack_channel(final_report_block)
             
         else:
             # Create a thread for each action
@@ -456,9 +491,10 @@ def main(event, context):
             
             slack_instant_reply(slack_caller.response_url, f"Your request has been completed.")
             
-            generate_report(flow, unique_request_id, slack_caller.user)
+            final_report_block = generate_report(flow, unique_request_id, slack_caller.user)
             
-            # TODO("Send report on Slack Channel")
+            post_to_slack_channel(final_report_block)
+            
         
     except SlackPayloadProcessing as SPP:
         # TODO("Post results to Slack")

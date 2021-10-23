@@ -174,6 +174,9 @@ class Flow:
             Parameters={
                 'Port': [
                     str(self.port),
+                ],
+                'Protocol': [
+                    str(self.protocol),
                 ]
             },
         )
